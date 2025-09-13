@@ -124,6 +124,7 @@
             gap: 5px;
             border: 2px solid #654321;
             transition: all 0.5s ease;
+            z-index: 10; /* 배를 앞으로 오게 함 */
         }
 
         .boat-character {
@@ -226,19 +227,21 @@
             margin: 10px 0;
             font-weight: bold;
         }
-
+        
         @keyframes celebration {
             0% { transform: scale(1); }
             50% { transform: scale(1.1); }
             100% { transform: scale(1); }
         }
 
+        /* 💡 진동 효과를 3번만 실행하도록 수정 */
         .celebration {
-            animation: celebration 0.5s ease-in-out infinite;
+            animation: celebration 0.5s ease-in-out 3;
         }
     </style>
 </head>
 <body>
+<font color="white">부산진여자상업고등학교 인공지능기초 학습자료</font>
     <div class="game-container">
         <h1>🌉 강 건너기 퍼즐</h1>
         
@@ -268,15 +271,13 @@
 
             <div class="river">
                 <div class="boat" id="boat">
-                    <!-- 배 안의 캐릭터들이 여기에 표시됩니다 -->
-                </div>
+                    </div>
             </div>
 
             <div class="side" id="rightSide">
                 <h3>오른쪽 (목표점)</h3>
                 <div class="characters" id="rightCharacters">
-                    <!-- 건너간 캐릭터들이 여기에 표시됩니다 -->
-                </div>
+                    </div>
             </div>
         </div>
 
@@ -289,6 +290,10 @@
     </div>
 
     <script>
+        // 오디오 객체는 사용자 상호작용 후 로드
+        let moveSound = null;
+        let winSound = null; // 💡 승리 효과음용 오디오 객체 추가
+
         class RiverCrossingGame {
             constructor() {
                 this.leftSide = new Set(['farmer', 'wolf', 'sheep', 'cabbage']);
@@ -298,64 +303,64 @@
                 this.selectedCharacter = null;
                 this.moves = 0;
                 this.gameWon = false;
+                this.gameOver = false;
                 
                 this.initializeEventListeners();
                 this.updateDisplay();
+                this.updateButtonStates();
             }
 
             initializeEventListeners() {
                 document.addEventListener('click', (e) => {
                     if (e.target.classList.contains('character')) {
-                        this.selectCharacter(e.target);
+                        if (!this.gameOver && !this.gameWon) {
+                            this.selectCharacter(e.target);
+                        }
                     }
                 });
             }
 
             selectCharacter(element) {
-                if (this.gameWon) return;
-
                 const characterType = element.dataset.type;
                 const currentSide = this.boatSide === 'left' ? this.leftSide : this.rightSide;
                 
-                // 농부는 항상 배에 있어야 함
                 if (!currentSide.has('farmer') && characterType !== 'farmer') {
                     this.showMessage('농부가 없으면 배를 조종할 수 없습니다!', 'error');
                     return;
                 }
                 
-                // 같은 쪽에 있는 캐릭터만 선택 가능
                 if (!currentSide.has(characterType)) {
                     this.showMessage('배가 있는 쪽의 캐릭터만 선택할 수 있습니다!', 'error');
                     return;
                 }
 
-                // 이미 선택된 캐릭터를 다시 클릭하면 선택 해제
-                if (this.selectedCharacter === characterType) {
-                    this.selectedCharacter = null;
-                    this.boatPassengers.delete(characterType);
-                } else {
-                    // 배에는 농부 + 1명만 탈 수 있음
-                    if (this.boatPassengers.size >= 2) {
-                        this.showMessage('배에는 농부와 함께 하나만 더 탈 수 있습니다!', 'error');
-                        return;
-                    }
-                    
-                    if (characterType === 'farmer') {
-                        this.boatPassengers.add('farmer');
-                    } else {
-                        if (!this.boatPassengers.has('farmer')) {
-                            this.boatPassengers.add('farmer');
-                        }
-                        this.boatPassengers.add(characterType);
-                    }
-                    this.selectedCharacter = characterType;
+                if (this.boatPassengers.size === 1 && characterType === 'farmer') {
+                     // 농부 혼자 타고 있을 때, 농부를 다시 클릭하면 선택 해제
+                    this.boatPassengers.delete('farmer');
+                } else if (this.boatPassengers.size >= 2) {
+                     this.showMessage('배에는 농부와 함께 하나만 더 탈 수 있습니다!', 'error');
+                     return;
                 }
-
+                else {
+                    if (this.boatPassengers.has(characterType)) {
+                        this.boatPassengers.delete(characterType);
+                    } else {
+                        if (characterType === 'farmer') {
+                            this.boatPassengers.add('farmer');
+                        } else {
+                            if (!this.boatPassengers.has('farmer')) {
+                                this.boatPassengers.add('farmer');
+                            }
+                            this.boatPassengers.add(characterType);
+                        }
+                    }
+                }
+                
                 this.updateDisplay();
             }
 
             crossRiver() {
-                if (this.gameWon) return;
+                if (this.gameWon || this.gameOver) return;
                 
                 if (this.boatPassengers.size === 0) {
                     this.showMessage('배에 탈 사람을 선택하세요!', 'error');
@@ -366,12 +371,18 @@
                     this.showMessage('농부가 없으면 배를 조종할 수 없습니다!', 'error');
                     return;
                 }
+                
+                if (!moveSound) {
+                    moveSound = new Audio('0.mp3');
+                }
+                moveSound.play().catch(error => {
+                    console.error("Audio playback failed:", error);
+                });
 
-                // 배 이동
+
                 const fromSide = this.boatSide === 'left' ? this.leftSide : this.rightSide;
                 const toSide = this.boatSide === 'left' ? this.rightSide : this.leftSide;
 
-                // 캐릭터들을 이동
                 for (const passenger of this.boatPassengers) {
                     fromSide.delete(passenger);
                     toSide.add(passenger);
@@ -382,17 +393,26 @@
                 this.selectedCharacter = null;
                 this.moves++;
 
-                // 게임 상태 체크
                 if (this.checkGameState()) {
                     this.updateDisplay();
+                    this.updateButtonStates();
                     return;
                 }
 
-                // 승리 조건 체크
                 if (this.rightSide.size === 4) {
                     this.gameWon = true;
                     this.showMessage(`축하합니다! ${this.moves}번 만에 모두 안전하게 건넜습니다! 🎉`, 'success');
                     document.body.classList.add('celebration');
+
+                    // 💡 승리 시 소리 재생
+                    if (!winSound) {
+                        winSound = new Audio('10.mp3');
+                    }
+                    winSound.play().catch(error => {
+                        console.error("Win sound playback failed:", error);
+                    });
+
+                    this.updateButtonStates();
                 } else {
                     this.showMessage('좋습니다! 계속 진행하세요.', 'info');
                 }
@@ -401,26 +421,28 @@
             }
 
             checkGameState() {
-                // 왼쪽 체크
                 if (!this.leftSide.has('farmer') && this.leftSide.size > 0) {
                     if (this.leftSide.has('wolf') && this.leftSide.has('sheep')) {
                         this.showMessage('게임 오버! 늑대가 양을 잡아먹었습니다! 🐺💀', 'error');
+                        this.gameOver = true;
                         return true;
                     }
                     if (this.leftSide.has('sheep') && this.leftSide.has('cabbage')) {
                         this.showMessage('게임 오버! 양이 양배추를 먹어버렸습니다! 🐑🥬', 'error');
+                        this.gameOver = true;
                         return true;
                     }
                 }
 
-                // 오른쪽 체크
                 if (!this.rightSide.has('farmer') && this.rightSide.size > 0) {
                     if (this.rightSide.has('wolf') && this.rightSide.has('sheep')) {
                         this.showMessage('게임 오버! 늑대가 양을 잡아먹었습니다! 🐺💀', 'error');
+                        this.gameOver = true;
                         return true;
                     }
                     if (this.rightSide.has('sheep') && this.rightSide.has('cabbage')) {
                         this.showMessage('게임 오버! 양이 양배추를 먹어버렸습니다! 🐑🥬', 'error');
+                        this.gameOver = true;
                         return true;
                     }
                 }
@@ -487,12 +509,32 @@
                     div.textContent = characterEmojis[passenger];
                     boatElement.appendChild(div);
                 }
+
+                // 💡 배 위치 업데이트 및 z-index 관리
+                if (this.boatSide === 'left') {
+                    boatElement.style.transform = 'translateX(-120px)';
+                } else {
+                    boatElement.style.transform = 'translateX(120px)';
+                }
             }
 
             showMessage(text, type = 'info') {
                 const messageElement = document.getElementById('message');
                 messageElement.textContent = text;
                 messageElement.className = `message ${type}`;
+            }
+
+            updateButtonStates() {
+                const crossBtn = document.getElementById('crossBtn');
+                const resetBtn = document.getElementById('resetBtn');
+                
+                if (this.gameOver || this.gameWon) {
+                    crossBtn.disabled = true;
+                    resetBtn.disabled = false;
+                } else {
+                    crossBtn.disabled = false;
+                    resetBtn.disabled = false;
+                }
             }
 
             reset() {
@@ -503,13 +545,14 @@
                 this.selectedCharacter = null;
                 this.moves = 0;
                 this.gameWon = false;
+                this.gameOver = false;
                 document.body.classList.remove('celebration');
                 this.showMessage('게임이 초기화되었습니다. 캐릭터를 클릭해서 배에 태우고 강을 건너보세요!', 'info');
                 this.updateDisplay();
+                this.updateButtonStates();
             }
         }
 
-        // 게임 인스턴스 생성
         let game = new RiverCrossingGame();
 
         function crossRiver() {
