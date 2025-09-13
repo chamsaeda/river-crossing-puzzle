@@ -27,7 +27,7 @@
             border-radius: 20px;
             padding: 30px;
             box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-            max-width: 900px;
+            max-width: 550px;
             width: 100%;
             margin: 20px 0;
         }
@@ -43,14 +43,14 @@
         .river-scene {
             display: flex;
             align-items: center;
-            justify-content: space-between;
+            justify-content: space-around;
             margin: 30px 0;
             position: relative;
         }
 
         .side {
-            width: 300px;
-            min-height: 200px;
+            width: 180px;
+            min-height: 220px;
             background: linear-gradient(45deg, #90EE90, #98FB98);
             border-radius: 15px;
             padding: 20px;
@@ -101,7 +101,7 @@
         }
 
         .river {
-            width: 150px;
+            width: 100px;
             height: 200px;
             background: linear-gradient(180deg, #4169E1, #1E90FF);
             border-radius: 10px;
@@ -112,22 +112,39 @@
             border: 2px solid #000080;
         }
 
+        /* 💡 배 스타일 수정 */
         .boat {
-            width: 80px;
-            height: 40px;
-            background: #8B4513;
-            border-radius: 20px;
+            width: 70px; /* 배 크기 조금 키움 */
+            height: 40px; /* 높이도 조금 키움 */
+            background: transparent; /* 배경을 투명하게 */
+            border: none; /* 테두리 제거 */
             position: relative;
             display: flex;
+            flex-direction: row; /* 세로 정렬로 변경 */
             align-items: center;
-            justify-content: center;
+            justify-content: center; /* 캐릭터가 바닥에 놓이도록 */
             gap: 5px;
-            border: 2px solid #654321;
             transition: all 0.5s ease;
-            z-index: 10; /* 배를 앞으로 오게 함 */
+            z-index: 10;
+            padding-bottom: 10px; /* 캐릭터가 바닥에 더 잘 붙도록 */
+        }
+
+        /* 💡 배의 실제 모양을 담당할 부분 */
+        .boat-bottom {
+            width: 100%;
+            height: 30px; /* 배 바닥의 높이 */
+            background: #8B4513; /* 배 색상 */
+            border-radius: 0 0 40% 40% / 0 0 80% 80%; /* 타원형 바닥 모양 */
+            border: 2px solid #654321;
+            position: absolute; /* .boat 컨테이너 내에서 위치 지정 */
+            bottom: 0; /* 바닥에 붙도록 */
+            left: 0;
+            box-shadow: 0 5px 10px rgba(0,0,0,0.3); /* 그림자 추가 */
         }
 
         .boat-character {
+            z-index: 11; /* 캐릭터가 배 바닥 위에 오도록 */
+            position: relative; /* z-index 적용을 위해 필요 */
             width: 25px;
             height: 25px;
             border-radius: 50%;
@@ -234,7 +251,6 @@
             100% { transform: scale(1); }
         }
 
-        /* 💡 진동 효과를 3번만 실행하도록 수정 */
         .celebration {
             animation: celebration 0.5s ease-in-out 3;
         }
@@ -271,7 +287,7 @@
 
             <div class="river">
                 <div class="boat" id="boat">
-                    </div>
+                    <div class="boat-bottom"></div> </div>
             </div>
 
             <div class="side" id="rightSide">
@@ -292,13 +308,13 @@
     <script>
         // 오디오 객체는 사용자 상호작용 후 로드
         let moveSound = null;
-        let winSound = null; // 💡 승리 효과음용 오디오 객체 추가
+        let winSound = null;
 
         class RiverCrossingGame {
             constructor() {
                 this.leftSide = new Set(['farmer', 'wolf', 'sheep', 'cabbage']);
                 this.rightSide = new Set();
-                this.boatSide = 'left'; // 배가 있는 쪽
+                this.boatSide = 'left';
                 this.boatPassengers = new Set();
                 this.selectedCharacter = null;
                 this.moves = 0;
@@ -324,35 +340,40 @@
                 const characterType = element.dataset.type;
                 const currentSide = this.boatSide === 'left' ? this.leftSide : this.rightSide;
                 
-                if (!currentSide.has('farmer') && characterType !== 'farmer') {
-                    this.showMessage('농부가 없으면 배를 조종할 수 없습니다!', 'error');
-                    return;
-                }
-                
                 if (!currentSide.has(characterType)) {
                     this.showMessage('배가 있는 쪽의 캐릭터만 선택할 수 있습니다!', 'error');
                     return;
                 }
 
-                if (this.boatPassengers.size === 1 && characterType === 'farmer') {
-                     // 농부 혼자 타고 있을 때, 농부를 다시 클릭하면 선택 해제
-                    this.boatPassengers.delete('farmer');
-                } else if (this.boatPassengers.size >= 2) {
-                     this.showMessage('배에는 농부와 함께 하나만 더 탈 수 있습니다!', 'error');
-                     return;
-                }
-                else {
-                    if (this.boatPassengers.has(characterType)) {
-                        this.boatPassengers.delete(characterType);
-                    } else {
-                        if (characterType === 'farmer') {
-                            this.boatPassengers.add('farmer');
-                        } else {
-                            if (!this.boatPassengers.has('farmer')) {
-                                this.boatPassengers.add('farmer');
-                            }
-                            this.boatPassengers.add(characterType);
-                        }
+                if (this.boatPassengers.has(characterType)) {
+                    this.boatPassengers.delete(characterType);
+                } else {
+                    if (characterType !== 'farmer' && !this.boatPassengers.has('farmer')) {
+                        this.showMessage('농부가 없으면 다른 캐릭터는 배에 탈 수 없습니다!', 'error');
+                        return;
+                    }
+
+                    if (this.boatPassengers.size >= 2) {
+                        this.showMessage('배에는 농부와 함께 하나만 더 탈 수 있습니다!', 'error');
+                        return;
+                    }
+
+                    if (characterType !== 'farmer' && this.boatPassengers.size === 1 && this.boatPassengers.has('farmer')) {
+                        this.boatPassengers.add(characterType);
+                    }
+                    else if (characterType === 'farmer' && this.boatPassengers.size === 0) {
+                        this.boatPassengers.add('farmer');
+                    }
+                    else if (characterType !== 'farmer' && this.boatPassengers.size === 0) {
+                         this.showMessage('농부가 없으면 다른 캐릭터는 배에 탈 수 없습니다!', 'error');
+                         return;
+                    }
+                    else if (this.boatPassengers.size >= 2) {
+                        this.showMessage('배에는 농부와 함께 하나만 더 탈 수 있습니다!', 'error');
+                        return;
+                    }
+                    else {
+                        this.boatPassengers.add(characterType);
                     }
                 }
                 
@@ -404,7 +425,6 @@
                     this.showMessage(`축하합니다! ${this.moves}번 만에 모두 안전하게 건넜습니다! 🎉`, 'success');
                     document.body.classList.add('celebration');
 
-                    // 💡 승리 시 소리 재생
                     if (!winSound) {
                         winSound = new Audio('10.mp3');
                     }
@@ -494,7 +514,15 @@
 
             updateBoat() {
                 const boatElement = document.getElementById('boat');
-                boatElement.innerHTML = '';
+                // 기존 boat-bottom이 있으면 제거하고 다시 추가 (캐릭터만 업데이트하기 위함)
+                const existingBoatBottom = boatElement.querySelector('.boat-bottom');
+                if (existingBoatBottom) {
+                    existingBoatBottom.remove();
+                }
+
+                // 캐릭터만 다시 그리기 (boat-bottom은 한 번만 그리면 됨)
+                const passengerElements = boatElement.querySelectorAll('.boat-character');
+                passengerElements.forEach(el => el.remove()); // 기존 캐릭터들 제거
 
                 const characterEmojis = {
                     farmer: '👨‍🌾',
@@ -510,11 +538,15 @@
                     boatElement.appendChild(div);
                 }
 
-                // 💡 배 위치 업데이트 및 z-index 관리
+                // boat-bottom 다시 추가
+                const boatBottomDiv = document.createElement('div');
+                boatBottomDiv.className = 'boat-bottom';
+                boatElement.appendChild(boatBottomDiv);
+
                 if (this.boatSide === 'left') {
-                    boatElement.style.transform = 'translateX(-120px)';
+                    boatElement.style.transform = 'translateX(-50px)';
                 } else {
-                    boatElement.style.transform = 'translateX(120px)';
+                    boatElement.style.transform = 'translateX(50px)';
                 }
             }
 
